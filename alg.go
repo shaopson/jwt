@@ -8,8 +8,7 @@ var mutex sync.RWMutex
 type Algorithm interface {
 	Name() string
 	Sign(src string, key interface{}) (string, error)
-	//verify signature value, if pass that will be return nil
-	Verify(s string, signature string, key interface{}) error
+	Verify(s string, signature string, key interface{}) (bool, error)
 }
 
 func Register(name string, alg Algorithm) {
@@ -18,8 +17,9 @@ func Register(name string, alg Algorithm) {
 	algorithms[name] = alg
 }
 
-func GetAlgorithm(name string) Algorithm {
+func GetAlgorithm(name string) (Algorithm, bool) {
 	mutex.RLock()
 	defer mutex.RUnlock()
-	return algorithms[name]
+	alg, ok := algorithms[name]
+	return alg, ok
 }

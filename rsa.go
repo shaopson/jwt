@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -75,7 +76,7 @@ func (alg *RsaAlg) Sign(src string, key interface{}) (string, error) {
 	var privateKey *rsa.PrivateKey
 	var err error
 	if !alg.hash.Available() {
-		return "", fmt.Errorf("Hash '%s' is not availd", alg.hash)
+		return "", fmt.Errorf("hash function '%s' is unavailable", alg.hash)
 	}
 	switch key.(type) {
 	case *rsa.PrivateKey:
@@ -91,10 +92,10 @@ func (alg *RsaAlg) Sign(src string, key interface{}) (string, error) {
 			privateKey, err = ParseRSAPrivateKey(keyString)
 		}
 	default:
-		return "", fmt.Errorf("%s sign fail, invalid private key:'%s'", alg.name, key)
+		return "", errors.New("rsa algorithm: invalid private key")
 	}
 	if privateKey == nil {
-		return "", fmt.Errorf("%s sign fail, invalid private key:'%s'", alg.name, key)
+		return "", errors.New("rsa algorithm: invalid private key")
 	}
 	hash := alg.hash.New()
 	hash.Write([]byte(src))
@@ -103,47 +104,43 @@ func (alg *RsaAlg) Sign(src string, key interface{}) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return EncodeSegment(data), nil
+	return encodeSegment(data), nil
 }
 
-func (alg *RsaAlg) Verify(s, signature string, key interface{}) error {
+func (alg *RsaAlg) Verify(s, signature string, key interface{}) (bool, error) {
 	var publicKey *rsa.PublicKey
 	var err error
 	if !alg.hash.Available() {
-		return fmt.Errorf("Hash '%s' is not availd", alg.hash)
+		return false, fmt.Errorf("hash function '%s' is unavailable", alg.hash)
 	}
-	switch key.(type) {
+	switch v := key.(type) {
 	case *rsa.PublicKey:
-		publicKey = key.(*rsa.PublicKey)
-	case *rsa.PrivateKey:
-		if ss, err := alg.Sign(s, key.(*rsa.PrivateKey)); err != nil {
-			return err
-		} else if ss != signature {
-			return ErrVerifyFail
-		}
-		return nil
+		publicKey = v
 	case string:
-		keyString := key.(string)
-		if strings.Index(keyString, "-BEGIN PUBLIC KEY-") > 0 {
-			publicKey, err = ParseRSAPublicKey(keyString)
+		if strings.Index(v, "-BEGIN PUBLIC KEY-") > 0 {
+			publicKey, err = ParseRSAPublicKey(v)
 		}
 	case []byte:
-		keyString := string(key.([]byte))
-		if strings.Index(keyString, "-BEGIN PUBLIC KEY-") > 0 {
-			publicKey, err = ParseRSAPublicKey(keyString)
+		s := string(v)
+		if strings.Index(s, "-BEGIN PUBLIC KEY-") > 0 {
+			publicKey, err = ParseRSAPublicKey(s)
 		}
-	default:
-		return fmt.Errorf("%s verify fail, invalid public key:'%s'", alg.name, key)
 	}
 	if publicKey == nil {
-		return fmt.Errorf("%s verify fail, invalid public key:'%s'", alg.name, key)
+		return false, errors.New("rsa algorithm: invalid public key")
 	}
-	sig, err := DecodeSegment(signature)
+	sig, err := decodeSegment(signature)
 	if err != nil {
-		return err
+		return false, err
 	}
 	hash := alg.hash.New()
 	hash.Write([]byte(s))
 	data := hash.Sum(nil)
-	return rsa.VerifyPKCS1v15(publicKey, alg.hash, data, sig)
+	err = rsa.VerifyPKCS1v15(publicKey, alg.hash, data, sig)
+	if err == nil {
+		return true, nil
+	} else if err == rsa.ErrVerification {
+		err = nil
+	}
+	return false, err
 }

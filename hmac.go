@@ -3,6 +3,7 @@ package jwt
 import (
 	"crypto"
 	"crypto/hmac"
+	"errors"
 	"fmt"
 )
 
@@ -28,28 +29,28 @@ func (alg *HmacAlg) Name() string {
 }
 
 func (alg *HmacAlg) Sign(src string, key interface{}) (string, error) {
-	var salt []byte
-	switch key.(type) {
-	case []byte:
-		salt = key.([]byte)
-	case string:
-		salt = []byte(key.(string))
-	default:
-		return "", fmt.Errorf("%s sign fail, invalid key:'%s'", alg.name, key)
-	}
 	if !alg.hash.Available() {
-		return "", fmt.Errorf("Hash '%s' is not availd", alg.hash)
+		return "", fmt.Errorf("hash function '%s' is unavailable", alg.hash)
 	}
-	hash := hmac.New(alg.hash.New, salt)
+	var k []byte
+	switch v := key.(type) {
+	case []byte:
+		k = v
+	case string:
+		k = []byte(v)
+	default:
+		return "", errors.New("hmac algorithm: key must be '[]byte', 'string' type.")
+	}
+	hash := hmac.New(alg.hash.New, k)
 	hash.Write([]byte(src))
-	return EncodeSegment(hash.Sum(nil)), nil
+	return encodeSegment(hash.Sum(nil)), nil
 }
 
-func (alg *HmacAlg) Verify(s, signature string, key interface{}) error {
+func (alg *HmacAlg) Verify(s, signature string, key interface{}) (bool, error) {
 	if ss, err := alg.Sign(s, key); err != nil {
-		return err
+		return false, err
 	} else if ss != signature {
-		return ErrVerifyFail
+		return false, nil
 	}
-	return nil
+	return true, nil
 }
