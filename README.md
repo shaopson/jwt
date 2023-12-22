@@ -3,7 +3,7 @@ A golang implementation of JWT, support hs256, hs384, hs512, rs256, rs384, rs512
 
 ## install
 ```shell
-go get -u github.com/dev-shao/jwt
+go get -u github.com/shaopson/jwt
 ```
 
 ## Quick start
@@ -13,12 +13,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/dev-shao/jwt"
+	"github.com/shaopson/jwt"
 )
 
 func main() {
 	secret := "test-key"
-	t := jwt.New(jwt.HS256, secret)
+	t := jwt.New(jwt.HS256, secret, nil)
 	t.SetClaim("uid", 1234)
 	t.SetClaim("username", "user1234")
 	token, err := t.Token()
@@ -28,7 +28,7 @@ func main() {
 	fmt.Println("jwt:",token)
 	
 	//
-	t, err = jwt.NewWithToken(token, secret)
+	t, err = jwt.Decode(token, secret)
 	if err != nil {
 		panic(err)
 	}
@@ -47,11 +47,11 @@ support: hmac(hs256,hs384,hs512), rsa(rs256,rs384,rs512)
 ```go
 secret := "test-key"
 // HS256
-t := jwt.New(jwt.HS256, secret)
+t := jwt.New(jwt.HS256, secret, nil)
 // HS384
-t := jwt.New(jwt.HS384, secret)
+t := jwt.New(jwt.HS384, secret, nil)
 // HS512
-t := jwt.New(jwt.HS512, secret)
+t := jwt.New(jwt.HS512, secret, nil)
 
 ```
 
@@ -61,11 +61,11 @@ t := jwt.New(jwt.HS512, secret)
 // generates an RSA keypair
 privateKey, err := rsa.GenerateKey(rand.Reader, 1024)
 // rs256
-t := jwt.New(jwt.RS256, privateKey)
+t := jwt.New(jwt.RS256, privateKey, nil)
 // encode
 token, err := t.Tokan()
 // decode
-t, err = jwt.NewWithToken(token, &privateKey.PublicKey)
+t, err = jwt.Decode(token, &privateKey.PublicKey)
 
 ```
 #### Pem encoding RSA key
@@ -74,5 +74,5 @@ private, public, err := GenRSAKey(1024)
 
 t := jwt.New(jwt.RS384, private)
 
-t, err = jwt.NewWithToken(token, public)
+t, err = jwt.Decode(token, public)
 ```
